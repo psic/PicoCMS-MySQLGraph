@@ -1,5 +1,9 @@
 <?php
 
+require 'svggraph/autoloader.php';
+
+
+
 /**
  * MySQLGraphPlugin
  * Extract rows from database query.
@@ -11,8 +15,6 @@ class MySQLGraphPlugin extends AbstractPicoPlugin
 	 * Stored config
 	 */
 	protected $config = array();
-    protected $nb_chart= 0;
-    protected $footerScript =array();
    
    /**
 	 * Triggered after Pico has read its configuration
@@ -23,8 +25,6 @@ class MySQLGraphPlugin extends AbstractPicoPlugin
 	 */
 	public function onConfigLoaded(array &$config)
 	{
-        $this->config['chartistPath'] = '//cdn.jsdelivr.net/chartist.js/latest/chartist.min.js';
-        $this->config['chartistPathCSS'] = '//cdn.jsdelivr.net/chartist.js/latest/chartist.min.css';
         if (isset($config['mysql_source']))
         {
             $db_conf = $config['mysql_source'];
@@ -42,14 +42,9 @@ class MySQLGraphPlugin extends AbstractPicoPlugin
 	
     public function onContentPrepared(&$content)
     {
-    //  public function onPageRendering(Twig_Environment &$twig, array &$twigVariables, &$templateName)
-   // {
-        $sample ='<div><div class="ct-chart ct-golden-section" id="chart1"></div><div class="ct-chart ct-golden-section" id="chart2">tititi</div></div>'; 
-       /** <script>new Chartist.Line(\'#chart1\', {                   labels: [1, 2, 3, 4],  series: [[100, 120, 180, 200]] }); new Chartist.Bar(\'#chart2\', {                    labels: [1, 2, 3, 4],series: [[5, 2, 8, 3]]});</script>';
-       **/
-       
-       //$content =  $twigVariables['content'];
-    
+        $graphR = new Goat1000\SVGGraph\SVGGraph(640, 480);
+        $graphR->colours(['red','green','blue']);
+      
         // Search for Embed shortcodes allover the content
         preg_match_all('#\[db_graph *.*?\]#s', $content, $matches);
 
@@ -60,8 +55,6 @@ class MySQLGraphPlugin extends AbstractPicoPlugin
             foreach ($matches[0] as $match) 
             {
                  // Get page content
-               // $new_content = &$twigVariables['content'];
-               // $content = preg_replace('#\[db_graph *.*?\]#s', $sample, $content, 1);
                 if ( ! preg_match('#query=[\"\']([^\"\']*)[\'\"]#s', $match, $query))
                     $error = true;
                 if ( ! preg_match('/db=[\"\']([^\"\']*)[\'\"]/', $match, $dbValue))
@@ -72,12 +65,9 @@ class MySQLGraphPlugin extends AbstractPicoPlugin
                 if (! $error)
                 {
                     // Replace embeding code with the shortcode in the content
-                    $div = '<div class="ct-chart ct-golden-section" id="chart'.++$this->nb_chart.'"></div>';
                     $result = $this->makeQuery($dbValue[1],$query[1],$graph[1]);
-
-//                     $this->footerScript[$this->nb_chart] = 'new Chartist.Line("#chart'.$this->nb_chart.'", {labels: [1, 2, 3, 4],  series: [[100, 120, 180, 200]] });';
-                    
-                    $content = preg_replace('#\[db_grap *.*?\]#s', $div, $content, 1);
+                    $graphR->values($result);
+                    $content = preg_replace('#\[db_grap *.*?\]#s',  $graphR->fetch('PieGraph', false), $content, 1);
                 }
                 else
                     $content = preg_replace('#\[db_graph *.*?\]#s', '*MySQLGraph ERROR*', $content, 1);
@@ -86,6 +76,8 @@ class MySQLGraphPlugin extends AbstractPicoPlugin
                 
             }
         }
+        
+
        
     }
     
@@ -106,35 +98,17 @@ class MySQLGraphPlugin extends AbstractPicoPlugin
     die("Connection failed: " . $conn->connect_error);
     }
     $result = $conn->query($query);
-    $results ="";
+    $results =array();
     if ($result->num_rows > 0) 
     {
         // output data of each row
-        //$chart=
         while($row = $result->fetch_assoc()) 
         {
-          //$rowording = array();
-          $label=array();
-          $serie=array();
           foreach($row as $key => $value)
             {
-           // $rowording['{'.$key.'}'] =$value;
-            $label[]="'".$key."',";
-            $serie[]=$value .',';
+                $results[$key] = $value;
             }
-         // $results .= $this->getLineWording($line,$rowording) ."\n";
         }
-        //$this->footerScript[$this->nb_chart] = 'new Chartist.Line("#chart'.$this->nb_chart.'", {labels: [1, 2, 3, 4],  series: [[100, 120, 180, 200]] });';
-        $this->footerScript[$this->nb_chart] = 'new Chartist.Pie("#chart'.$this->nb_chart.'", {labels: [';
-        foreach ($label as $lbl)
-            $this->footerScript[$this->nb_chart] .= $lbl;
-        $this->footerScript[$this->nb_chart] = substr($this->footerScript[$this->nb_chart], 0, -1);
-        $this->footerScript[$this->nb_chart] .='],  series: [';
-        foreach ($serie as $val)
-            $this->footerScript[$this->nb_chart] .= $val;
-        $this->footerScript[$this->nb_chart] = substr($this->footerScript[$this->nb_chart], 0, -1);
-        $this->footerScript[$this->nb_chart] .='] });';
-
     } 
     else 
     {
@@ -145,44 +119,5 @@ class MySQLGraphPlugin extends AbstractPicoPlugin
     return $results;
     
     }
-    
-    
-    /**
-	 * Triggered after Pico has rendered the page
-	 *
-	 * @param  string &$output contents which will be sent to the user
-	 * @return void
-	 */
-	public function onPageRendered(&$output)
-	{
-		// regular pages
-		// add css to end of <head>
-		$output = str_replace('</head>', ($this->buildExtraHeaders() . '</head>'), $output);
-		// add js to end of <body>
-		$output = str_replace('</body>', ($this->buildExtraFooters() . '</body>'), $output);
-	}
-
-	/**
-	 * Add some extra header tags for our styling.
-	 */
-	private function buildExtraHeaders() {
-		$headers = '<link rel="stylesheet" href="'.$this->config['chartistPathCSS'].'" type="text/css" />';
-		return $headers;
-	}
-
-	/**
-	 * Add some extra footer tags we need.
-	 */
-	private function buildExtraFooters() {
-		$footers = '<script src="'.$this->config['chartistPath'].'"type="text/javascript"></script>';
-		$footers .="<script>";
-		foreach ($this->footerScript as $script)
-		{
-		 $footers .= $script;
-		}
-		$footers .="</script>";
-		//$footers .='<script>new Chartist.Line("#chart1", {                   labels: [1, 2, 3, 4],  series: [[100, 120, 180, 200]] });new Chartist.Bar(\'#chart2\', {                    labels: [1, 2, 3, 4],series: [[5, 2, 8, 3]]});</script>'; 
-		return $footers;
-	}
-   
+       
 }
