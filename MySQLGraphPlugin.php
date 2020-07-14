@@ -25,27 +25,28 @@ class MySQLGraphPlugin extends AbstractPicoPlugin
 	 */
 	public function onConfigLoaded(array &$config)
 	{
-        if (isset($config['mysql_source']))
+	$this->config = include('MySQLConfig.php'); 
+	if (isset($config['mysql_source']))
         {
             $db_conf = $config['mysql_source'];
             $i=0;
-            foreach ($db_conf as $key => $value)
-            {
-                    foreach ($value as $key_param => $db_param)
-                        $this->config[$key][$key_param] = $db_param;
-                    $i++;
-            }
-        
+
+	    foreach ($this->config as $db_config_key => $db_config_array)
+	    {
+		$one_db_conf = $db_conf[$db_config_key];
+		foreach($one_db_conf as $query_name => $query_string)
+		{
+			$this->config[$db_config_key][$query_name] = $query_string;
+			$i++;
+		}
+	    } 
         }
 		
 	}
 	
     public function onContentPrepared(&$content)
     {
-        $graphR = new Goat1000\SVGGraph\SVGGraph(640, 480);
-        $graphR->colours(['red','green','blue']);
-      
-        // Search for Embed shortcodes allover the content
+              // Search for Embed shortcodes allover the content
         preg_match_all('#\[db_graph *.*?\]#s', $content, $matches);
 
         // Make sure we found some shortcodes
@@ -54,20 +55,53 @@ class MySQLGraphPlugin extends AbstractPicoPlugin
             // Walk through shortcodes one by one
             foreach ($matches[0] as $match) 
             {
-                 // Get page content
-                if ( ! preg_match('#query=[\"\']([^\"\']*)[\'\"]#s', $match, $query))
+                if ( ! preg_match('#query=[\"]([^\"]*)[\"]#s', $match, $query))
                     $error = true;
-                if ( ! preg_match('/db=[\"\']([^\"\']*)[\'\"]/', $match, $dbValue))
+                if ( ! preg_match('/graph=[\"]([^\"]*)[\"]/', $match, $graph))
                     $error = true;
-                if ( ! preg_match('/graph=[\"\']([^\"\']*)[\'\"]/', $match, $graph))
-                    $error = true;
-               
+                preg_match('/title=[\"]([^\"]*)[\"]/', $match, $title); 
+		preg_match('/height=[\"]([^\"]*)[\"]/', $match, $height);
+		preg_match('/width=[\"]([^\"]*)[\"]/', $match, $width);
+		preg_match('/settings=[\"]([^\"]*)[\"]/', $match, $settings_conf);
                 if (! $error)
                 {
-                    // Replace embeding code with the shortcode in the content
-                    $result = $this->makeQuery($dbValue[1],$query[1],$graph[1]);
+ 		      $query_string="";
+                      $db_name_string="";
+                      $found = 0;
+                      foreach ($this->config as $db_name => $db_conf_array)
+                      {
+                          foreach($db_conf_array as $key => $value)
+                          {
+                                  if($key == $query[1])
+                                  {
+                                          $query_string = $value;
+                                          $found = 1;
+                                  }
+                          }
+                          if($found == 1)
+                                  $db_name_string = $db_name;
+                      }
+  
+                     $result = $this->makeQuery($db_name_string,$query_string);
+		    // Replace embeding code with the shortcode in the content
+		    $settings = array();
+ 		//	 'back_colour' => 'white',
+		//	  'graph_title' => 'Start of Fibonacci series'
+		//	);
+		    if ($title != null)
+			    $settings['graph_title']=$title[1];
+		    if ($settings_conf != null)
+		    {
+			    $settings = json_decode(str_replace('\'','"',$settings_conf[1]),true);
+		    }
+		    if($width != null && $height != null)
+		    	$graphR = new Goat1000\SVGGraph\SVGGraph($width[1], $height[1],$settings);
+		    else
+		    	$graphR = new Goat1000\SVGGraph\SVGGraph(640, 480,$settings);
+		    $graphR->colours(['red','green','blue']);
                     $graphR->values($result);
-                    $content = preg_replace('#\[db_grap *.*?\]#s',  $graphR->fetch('PieGraph', false), $content, 1);
+                    $content = preg_replace('#\[db_grap *.*?\]#s',  $graphR->fetch($graph[1], false), $content, 1);
+                    //$content = preg_replace('#\[db_grap *.*?\]#s',  $graphR->fetch('PieGraph', false), $content, 1);
                 }
                 else
                     $content = preg_replace('#\[db_graph *.*?\]#s', '*MySQLGraph ERROR*', $content, 1);
@@ -76,18 +110,13 @@ class MySQLGraphPlugin extends AbstractPicoPlugin
                 
             }
         }
-        
-
-       
     }
     
-    
-    private function makeQuery($dbconf, $query,$line)
+    private function makeQuery($dbconf, $query)
     {
-   
-    $dbhost = $this->config[$dbconf]['db_host'];
-    $dbuser = $this->config[$dbconf]['db_user'];
-    $dbpwd = $this->config[$dbconf]['db_pwd'];
+    $dbhost = $this->config[$dbconf]['host'];
+    $dbuser = $this->config[$dbconf]['username'];
+    $dbpwd = $this->config[$dbconf]['password'];
     $dbname = $this->config[$dbconf]['db_name'];
 
     // Create connection    
@@ -97,6 +126,7 @@ class MySQLGraphPlugin extends AbstractPicoPlugin
     if ($conn->connect_error) {
     die("Connection failed: " . $conn->connect_error);
     }
+    $conn->set_charset("utf8");
     $result = $conn->query($query);
     $results =array();
     if ($result->num_rows > 0) 
