@@ -1,11 +1,15 @@
 <?php
 
+/**
+ * Conf file to configure all you MySQL connections
+ *
+ * */
 return array(
-    'coach'=>array ( 
+    'db1'=>array ( 
 	'host' => 'localhost',
 	'username' => 'admin',
-	'password' => 'cacapipi',
-	'db_name' => 'coach_db')
+	'password' => 'passwd1',
+	'db_name' => 'db1_name')
 );
 
 ?>
