@@ -81,27 +81,34 @@ class MySQLGraphPlugin extends AbstractPicoPlugin
                           if($found == 1)
                                   $db_name_string = $db_name;
                       }
-  
-                     $result = $this->makeQuery($db_name_string,$query_string);
-		    // Replace embeding code with the shortcode in the content
-		    $settings = array();
- 		//	 'back_colour' => 'white',
-		//	  'graph_title' => 'Start of Fibonacci series'
-		//	);
-		    if ($title != null)
-			    $settings['graph_title']=$title[1];
-		    if ($settings_conf != null)
-		    {
-			    $settings = json_decode(str_replace('\'','"',$settings_conf[1]),true);
-		    }
-		    if($width != null && $height != null)
-		    	$graphR = new Goat1000\SVGGraph\SVGGraph($width[1], $height[1],$settings);
-		    else
-		    	$graphR = new Goat1000\SVGGraph\SVGGraph(640, 480,$settings);
-		    $graphR->colours(['red','green','blue']);
-                    $graphR->values($result);
-                    $content = preg_replace('#\[db_grap *.*?\]#s',  $graphR->fetch($graph[1], false), $content, 1);
-                    //$content = preg_replace('#\[db_grap *.*?\]#s',  $graphR->fetch('PieGraph', false), $content, 1);
+  			if(strtoupper(substr(trim($query_string),0,6) ) != 'SELECT')
+			{
+                    	    $content = preg_replace('#\[db_graph *.*?\]#s', '*MySQLGraph ERROR*', $content, 1);
+			}
+			else
+			{
+
+			     $result = $this->makeQuery($db_name_string,$query_string);
+			    // Replace embeding code with the shortcode in the content
+			    $settings = array();
+			//	 'back_colour' => 'white',
+			//	  'graph_title' => 'Start of Fibonacci series'
+			//	);
+			    if ($title != null)
+				    $settings['graph_title']=$title[1];
+			    if ($settings_conf != null)
+			    {
+				    $settings = json_decode(str_replace('\'','"',$settings_conf[1]),true);
+			    }
+			    if($width != null && $height != null)
+				$graphR = new Goat1000\SVGGraph\SVGGraph($width[1], $height[1],$settings);
+			    else
+				$graphR = new Goat1000\SVGGraph\SVGGraph(640, 480,$settings);
+//			    $graphR->colours(['red','green','blue']);
+			    $graphR->values($result);
+			    $content = preg_replace('#\[db_grap *.*?\]#s',  $graphR->fetch($graph[1], false), $content, 1);
+			    //$content = preg_replace('#\[db_grap *.*?\]#s',  $graphR->fetch('PieGraph', false), $content, 1);
+			}
                 }
                 else
                     $content = preg_replace('#\[db_graph *.*?\]#s', '*MySQLGraph ERROR*', $content, 1);
