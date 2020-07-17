@@ -63,6 +63,7 @@ class MySQLGraphPlugin extends AbstractPicoPlugin
 		preg_match('/height=[\"]([^\"]*)[\"]/', $match, $height);
 		preg_match('/width=[\"]([^\"]*)[\"]/', $match, $width);
 		preg_match('/settings=[\"]([^\"]*)[\"]/', $match, $settings_conf);
+		preg_match('/is_data_column=[\"]([^\"]*)[\"]/', $match, $column);
                 if (! $error)
                 {
  		      $query_string="";
@@ -87,8 +88,12 @@ class MySQLGraphPlugin extends AbstractPicoPlugin
 			}
 			else
 			{
+			    if($column != null)
+				    $is_column = $column[1];
+			    else
+				    $is_column = 1;
 
-			     $result = $this->makeQuery($db_name_string,$query_string);
+			     $result = $this->makeQuery($db_name_string,$query_string,$is_column );
 			    // Replace embeding code with the shortcode in the content
 			    $settings = array();
 			//	 'back_colour' => 'white',
@@ -119,7 +124,7 @@ class MySQLGraphPlugin extends AbstractPicoPlugin
         }
     }
     
-    private function makeQuery($dbconf, $query)
+    private function makeQuery($dbconf, $query,$is_column)
     {
     $dbhost = $this->config[$dbconf]['host'];
     $dbuser = $this->config[$dbconf]['username'];
@@ -139,19 +144,26 @@ class MySQLGraphPlugin extends AbstractPicoPlugin
     if ($result->num_rows > 0) 
     {
         // output data of each row
-        while($row = $result->fetch_assoc()) 
-        {
-          foreach($row as $key => $value)
-            {
-                $results[$key] = $value;
-            }
-        }
+	  if($is_column)
+	  {
+	        while($row = $result->fetch_assoc()) 
+       		{
+			foreach($row as $key => $value)
+			{
+			  $results[$key] = $value;
+			}
+		}
+	  }
+	  else
+	  {
+		while($row = $result->fetch_array())
+			$results[$row[0]] = $row[1];
+	  }
     } 
     else 
     {
         $results =  "0 results";
     }
-    
     $conn->close();
     return $results;
     
