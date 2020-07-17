@@ -73,5 +73,5 @@ Finally, use those queries in your markdown file :
 ```
 
 ```
-[db_graph  query="sale" title="Sale By Mont" graph="LineGraph" is_data_column="0"]
+[db_graph  query="sale" title="Sale By Month" graph="LineGraph" is_data_column="0"]
 ```
