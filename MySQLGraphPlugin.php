@@ -63,6 +63,8 @@ class MySQLGraphPlugin extends AbstractPicoPlugin
                 preg_match('/width=[\"]([^\"]*)[\"]/', $match, $width);
                 preg_match('/settings=[\"]([^\"]*)[\"]/', $match, $settings_conf);
                 preg_match('/is_data_column=[\"]([^\"]*)[\"]/', $match, $column);
+                preg_match('/colours=[\"]([^\"]*)[\"]/', $match, $colours);
+                
                 if (! $error)
                 {
                     $query_string="";
@@ -106,6 +108,11 @@ class MySQLGraphPlugin extends AbstractPicoPlugin
                         else
                             $graphR = new Goat1000\SVGGraph\SVGGraph(640, 480,$settings);
         //			    $graphR->colours(['red','green','blue']);
+                        if ($colours != null)
+                        {
+                            $colours_ar=explode(',',$colours[1]);
+                            $graphR->colours($colours_ar);
+                        }
                         $graphR->values($result);
                         $content = preg_replace('#\[db_grap *.*?\]#s',  $graphR->fetch($graph[1], false), $content, 1);
                     }
